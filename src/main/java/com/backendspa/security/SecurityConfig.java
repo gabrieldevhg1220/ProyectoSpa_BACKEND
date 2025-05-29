@@ -32,7 +32,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:4200", "https://mdssentirsebien.netlify.app/"));
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:4200", "https://mdssentirsebien.netlify.app/")); // Agregar el link otorgado por el host (Netlify en este caso)
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
