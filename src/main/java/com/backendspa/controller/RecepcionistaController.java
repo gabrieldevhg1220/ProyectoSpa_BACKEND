@@ -37,7 +37,7 @@ public class RecepcionistaController {
         try {
             Reserva nuevaReserva = reservaService.createReserva(reserva);
             return ResponseEntity.status(HttpStatus.CREATED).body(nuevaReserva);
-        }catch (Exception e){
+        } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         }
     }
@@ -49,11 +49,11 @@ public class RecepcionistaController {
         try {
             Reserva updatedReserva = reservaService.updateReserva(id, reserva);
             return ResponseEntity.ok(updatedReserva);
-        }catch (RuntimeException e) {
+        } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         }
     }
-    
+
     // Eliminar una reserva
     @DeleteMapping("/reservas/{id}")
     @PreAuthorize("hasRole('ROLE_RECEPCIONISTA')")
@@ -61,7 +61,7 @@ public class RecepcionistaController {
         try {
             reservaService.deleteReserva(id);
             return ResponseEntity.ok().build();
-        }catch (RuntimeException e){
+        } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
     }
@@ -79,5 +79,41 @@ public class RecepcionistaController {
         return clienteService.getClienteById(id)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+    }
+
+    // Crear un cliente.
+    @PostMapping("/clientes")
+    @PreAuthorize("hasRole('ROLE_RECEPCIONISTA')")
+    public ResponseEntity<Cliente> createCliente(@RequestBody Cliente cliente) {
+        try {
+            Cliente nuevoCliente = clienteService.createCliente(cliente);
+            return ResponseEntity.status(HttpStatus.CREATED).body(nuevoCliente);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+    }
+
+    // Actualizar un cliente.
+    @PutMapping("/clientes/{id}")
+    @PreAuthorize("hasRole('ROLE_RECEPCIONISTA')")
+    public ResponseEntity<Cliente> updateCliente(@PathVariable Long id, @RequestBody Cliente cliente) {
+        try {
+            Cliente updatedCliente = clienteService.updateCliente(id, cliente);
+            return ResponseEntity.ok(updatedCliente);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
+    }
+
+    // Eliminar un cliente.
+    @DeleteMapping("/clientes/{id}")
+    @PreAuthorize("hasRole('ROLE_RECEPCIONISTA')")
+    public ResponseEntity<Void> deleteCliente(@PathVariable Long id) {
+        try {
+            clienteService.deleteCliente(id);
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
     }
 }
