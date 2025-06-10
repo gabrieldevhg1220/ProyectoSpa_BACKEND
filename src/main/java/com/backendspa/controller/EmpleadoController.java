@@ -37,7 +37,7 @@ public class EmpleadoController {
     }
 
     @GetMapping("/for-servicio/{servicio}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyAuthority('ROLE_RECEPCIONISTA', 'ROLE_GERENTE_GENERAL', 'ROLE_CLIENTE')")
     public ResponseEntity<List<Empleado>> getEmpleadosForServicio(@PathVariable String servicio) {
         List<Empleado> empleados = empleadoService.getEmpleadosForServicio(servicio);
         System.out.println("GET /api/empleados/for-servicio/" + servicio + " - Empleados devueltos:");
@@ -70,8 +70,6 @@ public class EmpleadoController {
             return ResponseEntity.status(500).body("Error al crear el empleado: " + e.getMessage());
         }
     }
-
-
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('ROLE_GERENTE_GENERAL')")

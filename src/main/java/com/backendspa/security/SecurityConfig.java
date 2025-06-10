@@ -32,10 +32,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:4200", "https://mdssentirsebien.netlify.app/")); // Agregar el link otorgado por el host (Netlify en este caso)
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:4200", "http://localhost:8080", "https://mdssentirsebien.netlify.app/")); // Añadido localhost:8080 para desarrollo
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L); // Tiempo de caché para preflight requests
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
@@ -55,7 +56,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/recepcionista/**").hasAuthority("ROLE_RECEPCIONISTA") // Nueva regla para rol RECEPCIONISTA
                         .requestMatchers("/api/clientes/**").authenticated()
                         .requestMatchers("/api/servicios/**").authenticated()
-                        .requestMatchers("/api/empleados/**").authenticated()
+                        .requestMatchers("/api/empleados/**").authenticated() // Asegurar que empleados sea accesible para autenticados
                         .requestMatchers("/api/reservas/**").authenticated() // Permitir a clientes y empleados autenticados
                         .anyRequest().authenticated()
                 )

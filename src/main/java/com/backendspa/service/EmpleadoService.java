@@ -41,6 +41,7 @@ public class EmpleadoService {
         SERVICIO_ROLES.put("YOGA", Arrays.asList(Empleado.Rol.INSTRUCTOR_YOGA));
     }
 
+    // CONSTRUCTOR
     public EmpleadoService(EmpleadoRepository empleadoRepository, @Lazy BCryptPasswordEncoder passwordEncoder) {
         this.empleadoRepository = empleadoRepository;
         this.passwordEncoder = passwordEncoder;
@@ -74,15 +75,11 @@ public class EmpleadoService {
         return empleadosFiltrados;
     }
 
-    // Nuevo método para obtener empleados según el servicio
+    // Método para obtener empleados según el servicio.
     public List<Empleado> getEmpleadosForServicio(String servicio) {
         List<Empleado.Rol> rolesPermitidos = SERVICIO_ROLES.getOrDefault(servicio, Arrays.asList());
-        if (rolesPermitidos.isEmpty()) {
-            return Arrays.asList();
-        }
-
         List<Empleado> empleadosFiltrados = empleadoRepository.findAll().stream()
-                .filter(empleado -> rolesPermitidos.contains(empleado.getRol()))
+                .filter(empleado -> rolesPermitidos.contains(empleado.getRol()) || empleado.getRol() == Empleado.Rol.GERENTE_GENERAL)
                 .collect(Collectors.toList());
 
         // Log para depuración
