@@ -1,0 +1,43 @@
+# Excluir archivos de compilación de Maven
+target/
+*.jar
+*.war
+.mvn/
+mvnw
+mvnw.cmd
+
+# Excluir configuraciones locales y sensibles
+application.properties
+application.yml
+application*.properties
+application*.yml
+
+# Excluir archivos de IntelliJ IDEA
+.idea/
+*.iml
+*.yml
+
+# Excluir archivos de otros IDEs y herramientas
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+nbproject/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+.vscode/
+
+# Excluir control de versiones
+.git/
+.gitignore
+
+# Excluir documentación y otros archivos innecesarios
+*.md
+*.txt
+
+# Excluir archivos de configuración de Fly.io
+.dockerignore
