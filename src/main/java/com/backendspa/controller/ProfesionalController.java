@@ -10,9 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -58,5 +56,24 @@ public class ProfesionalController {
         LocalDateTime startOfDay = hoy.atStartOfDay(); // Convertir LocalDate a LocalDateTime (00:00:00)
         List<Reserva> reservas = reservaService.getReservasByEmpleadoAndDate(empleado.getId(), startOfDay);
         return ResponseEntity.ok(reservas);
+    }
+
+    @GetMapping("/clientes/{clienteId}/historial")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<Reserva>> getClienteHistorial(@PathVariable Long clienteId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        SpaUserDetails userDetails = (SpaUserDetails) authentication.getPrincipal();
+        Long empleadoId = userDetails.getId();
+
+        Empleado empleado = empleadoService.getEmpleadoById(empleadoId)
+                .orElseThrow(() -> new RuntimeException("Empleado no encontrado con ID: " + empleadoId));
+
+        String rol = "ROLE_" + empleado.getRol().name();
+        if (!ROLES_PERMITIDOS.contains(rol)) {
+            return ResponseEntity.status(403).body(null);
+        }
+
+        List<Reserva> historial = reservaService.getReservasByClienteId(clienteId);
+        return ResponseEntity.ok(historial);
     }
 }
