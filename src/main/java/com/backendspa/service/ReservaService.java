@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.LocalDateTime;
 
 @Service
@@ -57,6 +56,7 @@ public class ReservaService {
         nuevaReserva.setFechaReserva(reserva.getFechaReserva());
         nuevaReserva.setServicio(reserva.getServicio());
         nuevaReserva.setStatus(reserva.getStatus());
+        nuevaReserva.setHistorial(reserva.getHistorial()); // Agregar el historial
 
         // Log para depuración después de guardar
         Reserva savedReserva = reservaRepository.save(nuevaReserva);
@@ -84,6 +84,7 @@ public class ReservaService {
         reserva.setFechaReserva(reservaDetails.getFechaReserva());
         reserva.setServicio(reservaDetails.getServicio());
         reserva.setStatus(reservaDetails.getStatus());
+        reserva.setHistorial(reservaDetails.getHistorial()); // Actualizar el historial
         return reservaRepository.save(reserva);
     }
 

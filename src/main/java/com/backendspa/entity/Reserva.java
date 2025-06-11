@@ -32,6 +32,9 @@ public class Reserva {
     @Column(nullable = false)
     private Status status;
 
+    @Column(columnDefinition = "TEXT")
+    private String historial;
+
     public enum Status {
         PENDIENTE, CONFIRMADA, CANCELADA, COMPLETADA
     }
