@@ -8,6 +8,7 @@ import com.backendspa.repository.EmpleadoRepository;
 import com.backendspa.repository.ReservaRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.time.LocalDate;
@@ -47,6 +48,13 @@ public class ReservaService {
         // Validar que el empleado tenga un rol asignado
         if (empleado.getRol() == null) {
             throw new IllegalArgumentException("El empleado debe tener un rol asignado");
+        }
+
+        // Validar que la reserva sea al menos 48hs antes.
+        LocalDateTime now = LocalDateTime.now();
+        long diferenciaHora = ChronoUnit.HOURS.between(now, reserva.getFechaReserva());
+        if (diferenciaHora < 48){
+            throw new IllegalArgumentException("Las reservas solo pueden realizarse con al menos 48 horas de antelación.");
         }
 
         // Crear una nueva instancia de Reserva para evitar problemas con la deserialización

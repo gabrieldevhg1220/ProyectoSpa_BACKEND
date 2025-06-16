@@ -54,6 +54,10 @@ public class ReservaController {
             Map<String, String> response = new HashMap<>();
             response.put("message", "Reserva creada exitosamente");
             return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e){
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("message", e.getMessage()); // Devuelve el mensaje de validación de 48 horas.
+            return ResponseEntity.badRequest().body(errorResponse);
         } catch (Exception e) {
             Map<String, String> errorResponse = new HashMap<>();
             errorResponse.put("message", "Error al crear la reserva: " + e.getMessage());
