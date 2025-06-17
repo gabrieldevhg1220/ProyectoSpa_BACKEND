@@ -32,6 +32,10 @@ public class Reserva {
     @Column(nullable = false)
     private Status status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "medio_pago", nullable = false)
+    private MedioPago medioPago; // Campo para el medio de pago.
+
     @Column(columnDefinition = "TEXT")
     private String historial;
 
@@ -70,6 +74,23 @@ public class Reserva {
         }
 
         public String getDescripcion() {
+            return descripcion;
+        }
+    }
+
+    public enum MedioPago {
+        EFECTIVO("Efectivo"),
+        TARJETA_CREDITO("Tarjeta de Crédito"),
+        TARJETA_DEBITO("Tarjeta de Débito"),
+        TRANSFERENCIA("Transferencia");
+
+        private final String descripcion;
+
+        MedioPago(String descripcion){
+            this.descripcion = descripcion;
+        }
+
+        public String getDescripcion(){
             return descripcion;
         }
     }

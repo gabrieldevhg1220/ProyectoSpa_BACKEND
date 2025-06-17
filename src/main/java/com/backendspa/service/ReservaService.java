@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Service
@@ -50,11 +49,16 @@ public class ReservaService {
             throw new IllegalArgumentException("El empleado debe tener un rol asignado");
         }
 
-        // Validar que la reserva sea al menos 48hs antes.
+        // Validar que la reserva sea al menos 48hs antes
         LocalDateTime now = LocalDateTime.now();
         long diferenciaHora = ChronoUnit.HOURS.between(now, reserva.getFechaReserva());
-        if (diferenciaHora < 48){
+        if (diferenciaHora < 48) {
             throw new IllegalArgumentException("Las reservas solo pueden realizarse con al menos 48 horas de antelación.");
+        }
+
+        // Validar que el medio de pago no sea nulo
+        if (reserva.getMedioPago() == null) {
+            throw new IllegalArgumentException("El medio de pago es obligatorio");
         }
 
         // Crear una nueva instancia de Reserva para evitar problemas con la deserialización
@@ -64,7 +68,8 @@ public class ReservaService {
         nuevaReserva.setFechaReserva(reserva.getFechaReserva());
         nuevaReserva.setServicio(reserva.getServicio());
         nuevaReserva.setStatus(reserva.getStatus());
-        nuevaReserva.setHistorial(reserva.getHistorial()); // Agregar el historial
+        nuevaReserva.setMedioPago(reserva.getMedioPago());
+        nuevaReserva.setHistorial(reserva.getHistorial());
 
         // Log para depuración después de guardar
         Reserva savedReserva = reservaRepository.save(nuevaReserva);
@@ -87,12 +92,17 @@ public class ReservaService {
     public Reserva updateReserva(Long id, Reserva reservaDetails) {
         Reserva reserva = reservaRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Reserva no encontrada"));
+        // Validar que el medio de pago no sea nulo
+        if (reservaDetails.getMedioPago() == null) {
+            throw new IllegalArgumentException("El medio de pago es obligatorio");
+        }
         reserva.setCliente(reservaDetails.getCliente());
         reserva.setEmpleado(reservaDetails.getEmpleado());
         reserva.setFechaReserva(reservaDetails.getFechaReserva());
         reserva.setServicio(reservaDetails.getServicio());
         reserva.setStatus(reservaDetails.getStatus());
-        reserva.setHistorial(reservaDetails.getHistorial()); // Actualizar el historial
+        reserva.setMedioPago(reservaDetails.getMedioPago());
+        reserva.setHistorial(reservaDetails.getHistorial());
         return reservaRepository.save(reserva);
     }
 

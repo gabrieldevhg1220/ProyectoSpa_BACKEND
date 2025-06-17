@@ -35,6 +35,13 @@ public class ReservaController {
     @PreAuthorize("hasRole('CLIENTE')")
     public ResponseEntity<?> createReserva(@RequestBody ReservaRequest reservaRequest) {
         try {
+            // Validar que el medio de pago no sea nulo
+            if (reservaRequest.getMedioPago() == null) {
+                Map<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("message", "El medio de pago es obligatorio");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+
             // Obtener cliente y empleado
             Cliente cliente = clienteService.getClienteById(reservaRequest.getClienteId())
                     .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
@@ -48,15 +55,16 @@ public class ReservaController {
             reserva.setFechaReserva(reservaRequest.getFechaReserva());
             reserva.setServicio(Reserva.Servicio.valueOf(reservaRequest.getServicio()));
             reserva.setStatus(Reserva.Status.PENDIENTE);
+            reserva.setMedioPago(Reserva.MedioPago.valueOf(reservaRequest.getMedioPago()));
 
             reservaService.createReserva(reserva);
 
             Map<String, String> response = new HashMap<>();
             response.put("message", "Reserva creada exitosamente");
             return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e){
+        } catch (IllegalArgumentException e) {
             Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("message", e.getMessage()); // Devuelve el mensaje de validación de 48 horas.
+            errorResponse.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(errorResponse);
         } catch (Exception e) {
             Map<String, String> errorResponse = new HashMap<>();
@@ -82,6 +90,13 @@ public class ReservaController {
     @PreAuthorize("hasAnyRole('RECEPCIONISTA', 'GERENTE_GENERAL')")
     public ResponseEntity<?> updateReserva(@PathVariable Long id, @RequestBody ReservaRequest reservaRequest) {
         try {
+            // Validar que el medio de pago no sea nulo
+            if (reservaRequest.getMedioPago() == null) {
+                Map<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("message", "El medio de pago es obligatorio");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+
             Cliente cliente = clienteService.getClienteById(reservaRequest.getClienteId())
                     .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
             Empleado empleado = empleadoService.getEmpleadoById(reservaRequest.getEmpleadoId())
@@ -93,6 +108,7 @@ public class ReservaController {
             reserva.setFechaReserva(reservaRequest.getFechaReserva());
             reserva.setServicio(Reserva.Servicio.valueOf(reservaRequest.getServicio()));
             reserva.setStatus(Reserva.Status.valueOf(reservaRequest.getStatus()));
+            reserva.setMedioPago(Reserva.MedioPago.valueOf(reservaRequest.getMedioPago()));
 
             Reserva updatedReserva = reservaService.updateReserva(id, reserva);
 
@@ -152,6 +168,7 @@ public class ReservaController {
         private LocalDateTime fechaReserva;
         private String servicio;
         private String status;
+        private String medioPago;
 
         public Long getClienteId() { return clienteId; }
         public void setClienteId(Long clienteId) { this.clienteId = clienteId; }
@@ -163,5 +180,7 @@ public class ReservaController {
         public void setServicio(String servicio) { this.servicio = servicio; }
         public String getStatus() { return status; }
         public void setStatus(String status) { this.status = status; }
+        public String getMedioPago() { return medioPago; }
+        public void setMedioPago(String medioPago) { this.medioPago = medioPago; }
     }
 }
