@@ -56,6 +56,7 @@ public class ReservaController {
             reserva.setServicio(Reserva.Servicio.valueOf(reservaRequest.getServicio()));
             reserva.setStatus(Reserva.Status.PENDIENTE);
             reserva.setMedioPago(Reserva.MedioPago.valueOf(reservaRequest.getMedioPago()));
+            reserva.setDescuentoAplicado(reservaRequest.getDescuentoAplicado()); // Establecer el descuento
 
             reservaService.createReserva(reserva);
 
@@ -109,6 +110,7 @@ public class ReservaController {
             reserva.setServicio(Reserva.Servicio.valueOf(reservaRequest.getServicio()));
             reserva.setStatus(Reserva.Status.valueOf(reservaRequest.getStatus()));
             reserva.setMedioPago(Reserva.MedioPago.valueOf(reservaRequest.getMedioPago()));
+            reserva.setDescuentoAplicado(reservaRequest.getDescuentoAplicado()); // Establecer el descuento
 
             Reserva updatedReserva = reservaService.updateReserva(id, reserva);
 
@@ -169,6 +171,7 @@ public class ReservaController {
         private String servicio;
         private String status;
         private String medioPago;
+        private Integer descuentoAplicado; // Nuevo campo para el descuento
 
         public Long getClienteId() { return clienteId; }
         public void setClienteId(Long clienteId) { this.clienteId = clienteId; }
@@ -182,5 +185,7 @@ public class ReservaController {
         public void setStatus(String status) { this.status = status; }
         public String getMedioPago() { return medioPago; }
         public void setMedioPago(String medioPago) { this.medioPago = medioPago; }
+        public Integer getDescuentoAplicado() { return descuentoAplicado; }
+        public void setDescuentoAplicado(Integer descuentoAplicado) { this.descuentoAplicado = descuentoAplicado; }
     }
 }

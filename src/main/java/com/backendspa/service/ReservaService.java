@@ -69,6 +69,7 @@ public class ReservaService {
         nuevaReserva.setServicio(reserva.getServicio());
         nuevaReserva.setStatus(reserva.getStatus());
         nuevaReserva.setMedioPago(reserva.getMedioPago());
+        nuevaReserva.setDescuentoAplicado(reserva.getDescuentoAplicado()); // Persistir el descuento
         nuevaReserva.setHistorial(reserva.getHistorial());
 
         // Log para depuración después de guardar
@@ -102,6 +103,7 @@ public class ReservaService {
         reserva.setServicio(reservaDetails.getServicio());
         reserva.setStatus(reservaDetails.getStatus());
         reserva.setMedioPago(reservaDetails.getMedioPago());
+        reserva.setDescuentoAplicado(reservaDetails.getDescuentoAplicado()); // Persistir el descuento
         reserva.setHistorial(reservaDetails.getHistorial());
         return reservaRepository.save(reserva);
     }

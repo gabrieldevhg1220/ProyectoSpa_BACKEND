@@ -36,6 +36,9 @@ public class Reserva {
     @Column(name = "medio_pago", nullable = false)
     private MedioPago medioPago; // Campo para el medio de pago.
 
+    @Column
+    private Integer descuentoAplicado;
+
     @Column(columnDefinition = "TEXT")
     private String historial;
 
