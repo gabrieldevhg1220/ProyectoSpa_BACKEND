@@ -53,7 +53,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**", "/api/auth/register").permitAll()
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_GERENTE_GENERAL") // Solo GERENTE_GENERAL
                         .requestMatchers("/api/roles/**").hasAuthority("ROLE_GERENTE_GENERAL") // Solo GERENTE_GENERAL
-                        .requestMatchers("/api/recepcionista/**").hasAuthority("ROLE_RECEPCIONISTA") // Nueva regla para rol RECEPCIONISTA
+                        .requestMatchers("/api/recepcionista/**").hasAuthority("ROLE_RECEPCIONISTA") // Nueva regla para rol RECEPCIONISTA.
+                        .requestMatchers("/api/factura/**").hasAnyAuthority("ROLE_CLIENTE", "ROLE_RECEPCIONISTA", "ROLE_GERENTE_GENERAL")
                         .requestMatchers("/api/clientes/**").authenticated()
                         .requestMatchers("/api/servicios/**").authenticated()
                         .requestMatchers("/api/empleados/**").authenticated() // Asegurar que empleados sea accesible para autenticados
