@@ -58,12 +58,6 @@
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
 
-		<!-- Spring Mail -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-mail</artifactId>
-		</dependency>
-
 		<!-- SendGrid -->
 		<dependency>
 			<groupId>com.sendgrid</groupId>
@@ -98,7 +92,7 @@
 			<scope>runtime</scope>
 		</dependency>
 
-		<!-- Validation -->
+		<!-- Validacion -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-validation</artifactId>

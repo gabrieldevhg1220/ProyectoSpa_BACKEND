@@ -12,7 +12,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.util.Base64;
 
 @Service
 public class EmailService {
@@ -20,15 +19,18 @@ public class EmailService {
     @Value("${sendgrid.api-key}")
     private String sendGridApiKey;
 
-    public void sendEmailWithAttachment(String toEmail, String subject, String body, byte[] attachment, String attachmentName) throws IOException {
-        Email from = new Email("mdssentirsebien@gmail.com"); // Cambia por el correo verificado en SendGrid
+    @Value("${sendgrid.from-email}")
+    private String fromEmail;
+
+    public void sendEmailWithAttachment(String toEmail, String subject, String body, String attachmentBase64, String attachmentName) throws IOException {
+        Email from = new Email(fromEmail);
         Email to = new Email(toEmail);
         Content content = new Content("text/plain", body);
         Mail mail = new Mail(from, subject, to, content);
 
         // Añadir el adjunto (PDF)
         Attachments attachments = new Attachments();
-        attachments.setContent(Base64.getEncoder().encodeToString(attachment));
+        attachments.setContent(attachmentBase64);
         attachments.setType("application/pdf");
         attachments.setFilename(attachmentName);
         attachments.setDisposition("attachment");
