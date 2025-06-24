@@ -1,21 +1,15 @@
 package com.backendspa.controller;
 
-import com.backendspa.entity.Cliente;
-import com.backendspa.entity.Empleado;
-import com.backendspa.entity.Reserva;
-import com.backendspa.service.ClienteService;
-import com.backendspa.service.EmpleadoService;
-import com.backendspa.service.ReservaService;
+import com.backendspa.entity.*;
+import com.backendspa.repository.ServicioRepository;
+import com.backendspa.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -31,34 +25,47 @@ public class ReservaController {
     @Autowired
     private EmpleadoService empleadoService;
 
+    @Autowired
+    private ServicioRepository servicioRepository;
+
     @PostMapping
     @PreAuthorize("hasRole('CLIENTE')")
     public ResponseEntity<?> createReserva(@RequestBody ReservaRequest reservaRequest) {
         try {
-            // Validar que el medio de pago no sea nulo
             if (reservaRequest.getMedioPago() == null) {
                 Map<String, String> errorResponse = new HashMap<>();
                 errorResponse.put("message", "El medio de pago es obligatorio");
                 return ResponseEntity.badRequest().body(errorResponse);
             }
 
-            // Obtener cliente y empleado
+            if (reservaRequest.getServicios() == null || reservaRequest.getServicios().isEmpty()) {
+                Map<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("message", "Debe seleccionar al menos un servicio");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+
             Cliente cliente = clienteService.getClienteById(reservaRequest.getClienteId())
                     .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
             Empleado empleado = empleadoService.getEmpleadoById(reservaRequest.getEmpleadoId())
                     .orElseThrow(() -> new RuntimeException("Empleado no encontrado"));
 
-            // Crear la reserva
             Reserva reserva = new Reserva();
             reserva.setCliente(cliente);
             reserva.setEmpleado(empleado);
             reserva.setFechaReserva(reservaRequest.getFechaReserva());
-            reserva.setServicio(Reserva.Servicio.valueOf(reservaRequest.getServicio()));
             reserva.setStatus(Reserva.Status.PENDIENTE);
             reserva.setMedioPago(Reserva.MedioPago.valueOf(reservaRequest.getMedioPago()));
-            reserva.setDescuentoAplicado(reservaRequest.getDescuentoAplicado()); // Establecer el descuento
+            reserva.setDescuentoAplicado(reservaRequest.getDescuentoAplicado());
 
-            reservaService.createReserva(reserva);
+            List<ReservaService.ReservaServicioDTO> serviciosDTO = reservaRequest.getServicios().stream()
+                    .map(s -> {
+                        ReservaService.ReservaServicioDTO dto = new ReservaService.ReservaServicioDTO();
+                        dto.setServicioNombre(s.getServicio());
+                        dto.setFechaServicio(s.getFechaServicio());
+                        return dto;
+                    }).collect(Collectors.toList());
+
+            reservaService.createReserva(reserva, serviciosDTO);
 
             Map<String, String> response = new HashMap<>();
             response.put("message", "Reserva creada exitosamente");
@@ -91,10 +98,15 @@ public class ReservaController {
     @PreAuthorize("hasAnyRole('RECEPCIONISTA', 'GERENTE_GENERAL')")
     public ResponseEntity<?> updateReserva(@PathVariable Long id, @RequestBody ReservaRequest reservaRequest) {
         try {
-            // Validar que el medio de pago no sea nulo
             if (reservaRequest.getMedioPago() == null) {
                 Map<String, String> errorResponse = new HashMap<>();
                 errorResponse.put("message", "El medio de pago es obligatorio");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+
+            if (reservaRequest.getServicios() == null || reservaRequest.getServicios().isEmpty()) {
+                Map<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("message", "Debe seleccionar al menos un servicio");
                 return ResponseEntity.badRequest().body(errorResponse);
             }
 
@@ -107,12 +119,19 @@ public class ReservaController {
             reserva.setCliente(cliente);
             reserva.setEmpleado(empleado);
             reserva.setFechaReserva(reservaRequest.getFechaReserva());
-            reserva.setServicio(Reserva.Servicio.valueOf(reservaRequest.getServicio()));
             reserva.setStatus(Reserva.Status.valueOf(reservaRequest.getStatus()));
             reserva.setMedioPago(Reserva.MedioPago.valueOf(reservaRequest.getMedioPago()));
-            reserva.setDescuentoAplicado(reservaRequest.getDescuentoAplicado()); // Establecer el descuento
+            reserva.setDescuentoAplicado(reservaRequest.getDescuentoAplicado());
 
-            Reserva updatedReserva = reservaService.updateReserva(id, reserva);
+            List<ReservaService.ReservaServicioDTO> serviciosDTO = reservaRequest.getServicios().stream()
+                    .map(s -> {
+                        ReservaService.ReservaServicioDTO dto = new ReservaService.ReservaServicioDTO();
+                        dto.setServicioNombre(s.getServicio());
+                        dto.setFechaServicio(s.getFechaServicio());
+                        return dto;
+                    }).collect(Collectors.toList());
+
+            Reserva updatedReserva = reservaService.updateReserva(id, reserva, serviciosDTO);
 
             Map<String, String> response = new HashMap<>();
             response.put("message", "Reserva actualizada exitosamente");
@@ -141,8 +160,9 @@ public class ReservaController {
 
     @GetMapping("/servicios")
     public List<ServicioDTO> getAllServicios() {
-        return Arrays.stream(Reserva.Servicio.values())
-                .map(servicio -> new ServicioDTO(servicio.name(), servicio.getDescripcion()))
+        // Actualizar para usar la entidad Servicio
+        return servicioRepository.findAll().stream()
+                .map(servicio -> new ServicioDTO(servicio.getNombre(), servicio.getDescripcion()))
                 .collect(Collectors.toList());
     }
 
@@ -155,23 +175,18 @@ public class ReservaController {
             this.descripcion = descripcion;
         }
 
-        public String getNombre() {
-            return nombre;
-        }
-
-        public String getDescripcion() {
-            return descripcion;
-        }
+        public String getNombre() { return nombre; }
+        public String getDescripcion() { return descripcion; }
     }
 
     static class ReservaRequest {
         private Long clienteId;
         private Long empleadoId;
         private LocalDateTime fechaReserva;
-        private String servicio;
+        private List<ServicioReservaDTO> servicios;
         private String status;
         private String medioPago;
-        private Integer descuentoAplicado; // Nuevo campo para el descuento
+        private Integer descuentoAplicado;
 
         public Long getClienteId() { return clienteId; }
         public void setClienteId(Long clienteId) { this.clienteId = clienteId; }
@@ -179,13 +194,23 @@ public class ReservaController {
         public void setEmpleadoId(Long empleadoId) { this.empleadoId = empleadoId; }
         public LocalDateTime getFechaReserva() { return fechaReserva; }
         public void setFechaReserva(LocalDateTime fechaReserva) { this.fechaReserva = fechaReserva; }
-        public String getServicio() { return servicio; }
-        public void setServicio(String servicio) { this.servicio = servicio; }
+        public List<ServicioReservaDTO> getServicios() { return servicios; }
+        public void setServicios(List<ServicioReservaDTO> servicios) { this.servicios = servicios; }
         public String getStatus() { return status; }
         public void setStatus(String status) { this.status = status; }
         public String getMedioPago() { return medioPago; }
         public void setMedioPago(String medioPago) { this.medioPago = medioPago; }
         public Integer getDescuentoAplicado() { return descuentoAplicado; }
         public void setDescuentoAplicado(Integer descuentoAplicado) { this.descuentoAplicado = descuentoAplicado; }
+    }
+
+    static class ServicioReservaDTO {
+        private String servicio;
+        private LocalDateTime fechaServicio;
+
+        public String getServicio() { return servicio; }
+        public void setServicio(String servicio) { this.servicio = servicio; }
+        public LocalDateTime getFechaServicio() { return fechaServicio; }
+        public void setFechaServicio(LocalDateTime fechaServicio) { this.fechaServicio = fechaServicio; }
     }
 }

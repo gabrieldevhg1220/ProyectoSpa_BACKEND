@@ -9,9 +9,10 @@ import com.backendspa.service.ReservaService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.security.access.prepost.PreAuthorize;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -126,9 +127,30 @@ public class AdminController {
     }
 
     @PostMapping("/reservas")
-    public ResponseEntity<Reserva> createReserva(@RequestBody Reserva reserva) {
+    public ResponseEntity<Reserva> createReserva(@RequestBody ReservaRequest reservaRequest) {
         try {
-            Reserva nuevaReserva = reservaService.createReserva(reserva);
+            Cliente cliente = clienteService.getClienteById(reservaRequest.clienteId)
+                    .orElseThrow(() -> new IllegalArgumentException("Cliente no encontrado"));
+            Empleado empleado = empleadoService.getEmpleadoById(reservaRequest.empleadoId)
+                    .orElseThrow(() -> new IllegalArgumentException("Empleado no encontrado"));
+
+            Reserva reserva = new Reserva();
+            reserva.setCliente(cliente);
+            reserva.setEmpleado(empleado);
+            reserva.setFechaReserva(reservaRequest.fechaReserva);
+            reserva.setStatus(Reserva.Status.PENDIENTE);
+            reserva.setMedioPago(Reserva.MedioPago.valueOf(reservaRequest.medioPago));
+            reserva.setDescuentoAplicado(reservaRequest.descuentoAplicado);
+
+            List<ReservaService.ReservaServicioDTO> serviciosDTO = reservaRequest.servicios.stream()
+                    .map(s -> {
+                        ReservaService.ReservaServicioDTO dto = new ReservaService.ReservaServicioDTO();
+                        dto.setServicioNombre(s.servicio);
+                        dto.setFechaServicio(s.fechaServicio);
+                        return dto;
+                    }).collect(Collectors.toList());
+
+            Reserva nuevaReserva = reservaService.createReserva(reserva, serviciosDTO);
             return ResponseEntity.status(HttpStatus.CREATED).body(nuevaReserva);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
@@ -136,9 +158,30 @@ public class AdminController {
     }
 
     @PutMapping("/reservas/{id}")
-    public ResponseEntity<Reserva> updateReserva(@PathVariable Long id, @RequestBody Reserva reserva) {
+    public ResponseEntity<Reserva> updateReserva(@PathVariable Long id, @RequestBody ReservaRequest reservaRequest) {
         try {
-            Reserva updatedReserva = reservaService.updateReserva(id, reserva);
+            Cliente cliente = clienteService.getClienteById(reservaRequest.clienteId)
+                    .orElseThrow(() -> new IllegalArgumentException("Cliente no encontrado"));
+            Empleado empleado = empleadoService.getEmpleadoById(reservaRequest.empleadoId)
+                    .orElseThrow(() -> new IllegalArgumentException("Empleado no encontrado"));
+
+            Reserva reserva = new Reserva();
+            reserva.setCliente(cliente);
+            reserva.setEmpleado(empleado);
+            reserva.setFechaReserva(reservaRequest.fechaReserva);
+            reserva.setStatus(Reserva.Status.valueOf(reservaRequest.status));
+            reserva.setMedioPago(Reserva.MedioPago.valueOf(reservaRequest.medioPago));
+            reserva.setDescuentoAplicado(reservaRequest.descuentoAplicado);
+
+            List<ReservaService.ReservaServicioDTO> serviciosDTO = reservaRequest.servicios.stream()
+                    .map(s -> {
+                        ReservaService.ReservaServicioDTO dto = new ReservaService.ReservaServicioDTO();
+                        dto.setServicioNombre(s.servicio);
+                        dto.setFechaServicio(s.fechaServicio);
+                        return dto;
+                    }).collect(Collectors.toList());
+
+            Reserva updatedReserva = reservaService.updateReserva(id, reserva, serviciosDTO);
             return ResponseEntity.ok(updatedReserva);
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
@@ -153,5 +196,20 @@ public class AdminController {
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
+    }
+
+    public static class ReservaRequest {
+        public Long clienteId;
+        public Long empleadoId;
+        public LocalDateTime fechaReserva;
+        public List<ServicioDTO> servicios;
+        public String status;
+        public String medioPago;
+        public Integer descuentoAplicado;
+    }
+
+    public static class ServicioDTO {
+        public String servicio;
+        public LocalDateTime fechaServicio;
     }
 }

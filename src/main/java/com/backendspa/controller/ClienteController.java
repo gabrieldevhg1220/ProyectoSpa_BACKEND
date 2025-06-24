@@ -12,11 +12,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/clientes")
@@ -37,39 +38,46 @@ public class ClienteController {
     }
 
     @PostMapping("/reservas")
-    public ResponseEntity<?> createReserva(@RequestBody Reserva reserva) {
+    public ResponseEntity<?> createReserva(@RequestBody ReservaRequest reservaRequest) {
         try {
-            // Log para depuración
-            System.out.println("Recibiendo reserva: " + reserva);
-            System.out.println("Cliente ID: " + (reserva.getCliente() != null ? reserva.getCliente().getId() : "null"));
-            System.out.println("Empleado ID: " + (reserva.getEmpleado() != null ? reserva.getEmpleado().getId() : "null"));
-
-            // Validar que los campos requeridos estén presentes
-            if (reserva.getCliente() == null || reserva.getCliente().getId() == null ||
-                    reserva.getEmpleado() == null || reserva.getEmpleado().getId() == null ||
-                    reserva.getFechaReserva() == null || reserva.getServicio() == null) {
+            // Validar campos requeridos
+            if (reservaRequest.clienteId == null || reservaRequest.empleadoId == null ||
+                    reservaRequest.fechaReserva == null || reservaRequest.servicios == null ||
+                    reservaRequest.servicios.isEmpty()) {
                 Map<String, String> errorResponse = new HashMap<>();
                 errorResponse.put("error", "Faltan campos requeridos");
-                errorResponse.put("message", "Los campos cliente, empleado, fechaReserva y servicio son obligatorios");
+                errorResponse.put("message", "Los campos cliente, empleado, fechaReserva y servicios son obligatorios");
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
             }
 
-            // Cargar el cliente desde la base de datos usando el ID
-            Cliente cliente = clienteService.getClienteById(reserva.getCliente().getId())
-                    .orElseThrow(() -> new IllegalArgumentException("Cliente con ID " + reserva.getCliente().getId() + " no encontrado"));
+            // Cargar el cliente desde la base de datos
+            Cliente cliente = clienteService.getClienteById(reservaRequest.clienteId)
+                    .orElseThrow(() -> new IllegalArgumentException("Cliente no encontrado"));
+
+            // Cargar el empleado desde la base de datos
+            Empleado empleado = empleadoService.getEmpleadoById(reservaRequest.empleadoId)
+                    .orElseThrow(() -> new IllegalArgumentException("Empleado no encontrado"));
+
+            // Crear la reserva
+            Reserva reserva = new Reserva();
             reserva.setCliente(cliente);
-
-            // Cargar el empleado desde la base de datos usando el ID
-            Empleado empleado = empleadoService.getEmpleadoById(reserva.getEmpleado().getId())
-                    .orElseThrow(() -> new IllegalArgumentException("Empleado con ID " + reserva.getEmpleado().getId() + " no encontrado"));
             reserva.setEmpleado(empleado);
+            reserva.setFechaReserva(reservaRequest.fechaReserva);
+            reserva.setStatus(Reserva.Status.PENDIENTE);
+            reserva.setMedioPago(Reserva.MedioPago.valueOf(reservaRequest.medioPago));
+            reserva.setDescuentoAplicado(reservaRequest.descuentoAplicado);
 
-            // Log después de cargar las entidades
-            System.out.println("Cliente cargado: " + cliente);
-            System.out.println("Empleado cargado: " + empleado);
+            // Convertir servicios a DTO
+            List<ReservaService.ReservaServicioDTO> serviciosDTO = reservaRequest.servicios.stream()
+                    .map(s -> {
+                        ReservaService.ReservaServicioDTO dto = new ReservaService.ReservaServicioDTO();
+                        dto.setServicioNombre(s.servicio);
+                        dto.setFechaServicio(s.fechaServicio);
+                        return dto;
+                    }).collect(Collectors.toList());
 
             // Guardar la reserva
-            Reserva nuevaReserva = reservaService.createReserva(reserva);
+            Reserva nuevaReserva = reservaService.createReserva(reserva, serviciosDTO);
             return ResponseEntity.status(HttpStatus.CREATED).body(nuevaReserva);
         } catch (IllegalArgumentException e) {
             Map<String, String> errorResponse = new HashMap<>();
@@ -123,7 +131,6 @@ public class ClienteController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    // api para el cliente actualmente logeado.
     @GetMapping("/actual")
     public ResponseEntity<Cliente> getClienteByToken(Authentication authentication) {
         SpaUserDetails userDetails = (SpaUserDetails) authentication.getPrincipal();
@@ -142,5 +149,19 @@ public class ClienteController {
     public ResponseEntity<Void> deleteCliente(@PathVariable Long id) {
         clienteService.deleteCliente(id);
         return ResponseEntity.ok().build();
+    }
+
+    public static class ReservaRequest {
+        public Long clienteId;
+        public Long empleadoId;
+        public LocalDateTime fechaReserva;
+        public List<ServicioDTO> servicios;
+        public String medioPago;
+        public Integer descuentoAplicado;
+    }
+
+    public static class ServicioDTO {
+        public String servicio;
+        public LocalDateTime fechaServicio;
     }
 }

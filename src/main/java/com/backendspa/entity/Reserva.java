@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "reservas")
@@ -26,15 +27,11 @@ public class Reserva {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Servicio servicio;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private Status status;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "medio_pago", nullable = false)
-    private MedioPago medioPago; // Campo para el medio de pago.
+    private MedioPago medioPago;
 
     @Column
     private Integer descuentoAplicado;
@@ -42,43 +39,14 @@ public class Reserva {
     @Column(columnDefinition = "TEXT")
     private String historial;
 
+    @OneToMany(mappedBy = "reserva", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ReservaServicio> servicios;
+
+    @OneToMany(mappedBy = "reserva", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Pago> pagos;
+
     public enum Status {
         PENDIENTE, CONFIRMADA, CANCELADA, COMPLETADA
-    }
-
-
-    public enum Servicio {
-        // Masajes
-        ANTI_STRESS("Masaje Anti-stress"),
-        DESCONTRACTURANTE("Masaje Descontracturante"),
-        PIEDRAS_CALIENTES("Masaje con Piedras Calientes"),
-        CIRCULATORIO("Masaje Circulatorio"),
-        // Belleza
-        LIFTING_PESTANAS("Lifting de Pestañas"),
-        DEPILACION_FACIAL("Depilación Facial"),
-        BELLEZA_MANOS_PIES("Belleza de Manos y Pies"),
-        // Tratamientos Faciales
-        PUNTA_DIAMANTE("Punta de Diamante: Microexfoliación"),
-        LIMPIEZA_PROFUNDA("Limpieza Profunda + Hidratación"),
-        CRIO_FRECUENCIA_FACIAL("Crio Frecuencia Facial"),
-        // Tratamientos Corporales
-        VELASLIM("VelaSlim: Reducción de Celulitis"),
-        DERMOHEALTH("DermoHealth: Drenaje Linfático"),
-        CRIOFRECUENCIA("Criofrecuencia: Efecto Lifting"),
-        ULTRACAVITACION("Ultracavitación: Técnica Reductora"),
-        // Servicios Grupales
-        HIDROMASAJES("Hidromasajes"),
-        YOGA("Yoga");
-
-        private final String descripcion;
-
-        Servicio(String descripcion) {
-            this.descripcion = descripcion;
-        }
-
-        public String getDescripcion() {
-            return descripcion;
-        }
     }
 
     public enum MedioPago {
@@ -89,11 +57,11 @@ public class Reserva {
 
         private final String descripcion;
 
-        MedioPago(String descripcion){
+        MedioPago(String descripcion) {
             this.descripcion = descripcion;
         }
 
-        public String getDescripcion(){
+        public String getDescripcion() {
             return descripcion;
         }
     }
