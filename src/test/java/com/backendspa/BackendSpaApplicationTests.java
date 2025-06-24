@@ -5,23 +5,20 @@ import com.backendspa.repository.*;
 import com.backendspa.service.ReservaService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@ExtendWith(MockitoExtension.class)
 class BackendSpaApplicationTests {
 
 	@Autowired
@@ -45,29 +42,13 @@ class BackendSpaApplicationTests {
 	@Autowired
 	private PagoRepository pagoRepository;
 
-	@Configuration
-	static class TestConfig {
-		@Bean
-		public ReservaService reservaService(
-				ReservaRepository reservaRepository,
-				ClienteRepository clienteRepository,
-				EmpleadoRepository empleadoRepository,
-				ServicioRepository servicioRepository,
-				ReservaServicioRepository reservaServicioRepository,
-				PagoRepository pagoRepository
-		) {
-			return new ReservaService(
-					reservaRepository,
-					clienteRepository,
-					empleadoRepository,
-					servicioRepository,
-					reservaServicioRepository,
-					pagoRepository
-			);
-		}
-	}
+	private Cliente cliente;
+	private Empleado empleado;
+	private Servicio servicio1;
+	private Servicio servicio2;
 
 	@BeforeEach
+	@Transactional
 	void setUp() {
 		// Limpiar la base de datos
 		reservaServicioRepository.deleteAll();
@@ -78,32 +59,36 @@ class BackendSpaApplicationTests {
 		servicioRepository.deleteAll();
 
 		// Crear un cliente
-		Cliente cliente = new Cliente();
-		cliente.setId(1L);
+		cliente = new Cliente();
+		cliente.setDni("12345678A"); // Valor único y no nulo
 		cliente.setNombre("Test Cliente");
 		cliente.setApellido("Apellido");
 		cliente.setEmail("test@cliente.com");
-		clienteRepository.save(cliente);
+		cliente.setPassword("encoded_password");
+		cliente.setTelefono("1234567890");
+		cliente = clienteRepository.save(cliente);
 
 		// Crear un empleado
-		Empleado empleado = new Empleado();
-		empleado.setId(1L);
+		empleado = new Empleado();
+		empleado.setDni("87654321B"); // Valor único y no nulo
 		empleado.setNombre("Test Empleado");
 		empleado.setApellido("Apellido");
 		empleado.setEmail("test@empleado.com");
 		empleado.setRol(Empleado.Rol.MASAJISTA_TERAPEUTICO);
-		empleadoRepository.save(empleado);
+		empleado.setPassword("encoded_password");
+		empleado.setTelefono("0987654321");
+		empleado = empleadoRepository.save(empleado);
 
 		// Crear servicios
-		Servicio servicio1 = new Servicio();
+		servicio1 = new Servicio();
 		servicio1.setNombre("ANTI_STRESS");
 		servicio1.setPrecio(100.0);
-		servicioRepository.save(servicio1);
+		servicio1 = servicioRepository.save(servicio1);
 
-		Servicio servicio2 = new Servicio();
+		servicio2 = new Servicio();
 		servicio2.setNombre("DESCONTRACTURANTE");
 		servicio2.setPrecio(120.0);
-		servicioRepository.save(servicio2);
+		servicio2 = servicioRepository.save(servicio2);
 	}
 
 	@Test
@@ -111,66 +96,89 @@ class BackendSpaApplicationTests {
 	}
 
 	@Test
+	@Transactional
 	void testMultipleServicesSameDay() {
-		Cliente cliente = new Cliente();
-		cliente.setId(1L);
-		Empleado empleado = new Empleado();
-		empleado.setId(1L);
-		empleado.setRol(Empleado.Rol.MASAJISTA_TERAPEUTICO);
-
 		Reserva reserva = new Reserva();
 		reserva.setCliente(cliente);
 		reserva.setEmpleado(empleado);
 		reserva.setFechaReserva(LocalDateTime.now().plusDays(3));
 		reserva.setMedioPago(Reserva.MedioPago.TARJETA_DEBITO);
 		reserva.setDescuentoAplicado(15);
+		reserva.setStatus(Reserva.Status.PENDIENTE);
 
 		List<ReservaService.ReservaServicioDTO> serviciosDTO = new ArrayList<>();
-		serviciosDTO.add(new ReservaService.ReservaServicioDTO() {{
-			setServicioNombre("ANTI_STRESS");
-			setFechaServicio(LocalDateTime.now().plusDays(3));
-		}});
-		serviciosDTO.add(new ReservaService.ReservaServicioDTO() {{
-			setServicioNombre("DESCONTRACTURANTE");
-			setFechaServicio(LocalDateTime.now().plusDays(3));
-		}});
+		ReservaService.ReservaServicioDTO dto1 = new ReservaService.ReservaServicioDTO();
+		dto1.setServicioNombre("ANTI_STRESS");
+		dto1.setFechaServicio(LocalDateTime.now().plusDays(3));
+		serviciosDTO.add(dto1);
+
+		ReservaService.ReservaServicioDTO dto2 = new ReservaService.ReservaServicioDTO();
+		dto2.setServicioNombre("DESCONTRACTURANTE");
+		dto2.setFechaServicio(LocalDateTime.now().plusDays(3));
+		serviciosDTO.add(dto2);
 
 		Reserva savedReserva = reservaService.createReserva(reserva, serviciosDTO);
 
 		assertEquals(1, savedReserva.getPagos().size());
 		assertEquals(2, savedReserva.getServicios().size());
 		assertEquals(15, savedReserva.getDescuentoAplicado());
+		assertEquals(187.0, savedReserva.getPagos().get(0).getMontoTotal(), 0.01);
 	}
 
 	@Test
+	@Transactional
 	void testMultipleServicesDifferentDays() {
-		Cliente cliente = new Cliente();
-		cliente.setId(1L);
-		Empleado empleado = new Empleado();
-		empleado.setId(1L);
-		empleado.setRol(Empleado.Rol.MASAJISTA_TERAPEUTICO);
-
 		Reserva reserva = new Reserva();
 		reserva.setCliente(cliente);
 		reserva.setEmpleado(empleado);
 		reserva.setFechaReserva(LocalDateTime.now().plusDays(3));
 		reserva.setMedioPago(Reserva.MedioPago.TARJETA_DEBITO);
 		reserva.setDescuentoAplicado(15);
+		reserva.setStatus(Reserva.Status.PENDIENTE);
 
 		List<ReservaService.ReservaServicioDTO> serviciosDTO = new ArrayList<>();
-		serviciosDTO.add(new ReservaService.ReservaServicioDTO() {{
-			setServicioNombre("ANTI_STRESS");
-			setFechaServicio(LocalDateTime.now().plusDays(3));
-		}});
-		serviciosDTO.add(new ReservaService.ReservaServicioDTO() {{
-			setServicioNombre("DESCONTRACTURANTE");
-			setFechaServicio(LocalDateTime.now().plusDays(4));
-		}});
+		ReservaService.ReservaServicioDTO dto1 = new ReservaService.ReservaServicioDTO();
+		dto1.setServicioNombre("ANTI_STRESS");
+		dto1.setFechaServicio(LocalDateTime.now().plusDays(3));
+		serviciosDTO.add(dto1);
+
+		ReservaService.ReservaServicioDTO dto2 = new ReservaService.ReservaServicioDTO();
+		dto2.setServicioNombre("DESCONTRACTURANTE");
+		dto2.setFechaServicio(LocalDateTime.now().plusDays(4));
+		serviciosDTO.add(dto2);
 
 		Reserva savedReserva = reservaService.createReserva(reserva, serviciosDTO);
 
 		assertEquals(2, savedReserva.getPagos().size());
 		assertEquals(2, savedReserva.getServicios().size());
 		assertEquals(15, savedReserva.getDescuentoAplicado());
+		assertEquals(100.0 * 0.85, savedReserva.getPagos().stream()
+				.filter(p -> p.getFechaPago().equals(LocalDateTime.now().plusDays(3).toLocalDate()))
+				.findFirst().get().getMontoTotal(), 0.01);
+		assertEquals(120.0 * 0.85, savedReserva.getPagos().stream()
+				.filter(p -> p.getFechaPago().equals(LocalDateTime.now().plusDays(4).toLocalDate()))
+				.findFirst().get().getMontoTotal(), 0.01);
+	}
+
+	@Test
+	@Transactional
+	void testReservaLessThan48Hours() {
+		Reserva reserva = new Reserva();
+		reserva.setCliente(cliente);
+		reserva.setEmpleado(empleado);
+		reserva.setFechaReserva(LocalDateTime.now().plusHours(24));
+		reserva.setMedioPago(Reserva.MedioPago.TARJETA_DEBITO);
+		reserva.setDescuentoAplicado(15);
+		reserva.setStatus(Reserva.Status.PENDIENTE);
+
+		List<ReservaService.ReservaServicioDTO> serviciosDTO = new ArrayList<>();
+		ReservaService.ReservaServicioDTO dto = new ReservaService.ReservaServicioDTO();
+		dto.setServicioNombre("ANTI_STRESS");
+		dto.setFechaServicio(LocalDateTime.now().plusHours(24));
+		serviciosDTO.add(dto);
+
+		assertThrows(IllegalArgumentException.class, () -> {
+			reservaService.createReserva(reserva, serviciosDTO);
+		}, "Las reservas deben realizarse con al menos 48 horas de antelación.");
 	}
 }
