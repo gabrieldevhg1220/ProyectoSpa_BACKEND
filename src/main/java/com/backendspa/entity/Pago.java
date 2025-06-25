@@ -1,5 +1,6 @@
 package com.backendspa.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -19,6 +20,7 @@ public class Pago {
 
     @ManyToOne
     @JoinColumn(name = "reserva_id")
+    @JsonBackReference // Rompe el ciclo desde la perspectiva de Pago
     private Reserva reserva;
 
     @Column(nullable = false)

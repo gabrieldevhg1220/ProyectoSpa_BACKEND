@@ -1,5 +1,7 @@
 package com.backendspa.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -40,9 +42,11 @@ public class Reserva {
     private String historial;
 
     @OneToMany(mappedBy = "reserva", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference // Permite serializar la lista de servicios
     private List<ReservaServicio> servicios;
 
     @OneToMany(mappedBy = "reserva", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference // Permite serializar la lista de pagos
     private List<Pago> pagos;
 
     public enum Status {
