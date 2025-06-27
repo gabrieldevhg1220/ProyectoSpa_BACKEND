@@ -7,10 +7,13 @@ import com.backendspa.entity.ReservaServicio;
 import com.backendspa.service.ClienteService;
 import com.backendspa.service.EmailService;
 import com.backendspa.service.ReservaService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -23,6 +26,8 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/factura")
 public class FacturaController {
+
+    private static final Logger logger = LoggerFactory.getLogger(FacturaController.class);
 
     @Autowired
     private EmailService emailService;
@@ -37,6 +42,29 @@ public class FacturaController {
     @PreAuthorize("hasAnyAuthority('ROLE_CLIENTE', 'ROLE_RECEPCIONISTA', 'ROLE_GERENTE_GENERAL')")
     public ResponseEntity<Map<String, Object>> sendInvoice(@RequestBody InvoiceRequest request) {
         try {
+            logger.info("Recibida solicitud para enviar factura con invoiceNumber: {}", request.getInvoiceNumber());
+
+            // Validar que los campos requeridos no sean nulos
+            if (request.getEmail() == null || request.getEmail().trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("message", "El email es requerido."));
+            }
+            if (request.getInvoiceNumber() == null || request.getInvoiceNumber().trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("message", "El número de factura es requerido."));
+            }
+            if (request.getAttachmentBase64() == null || request.getAttachmentBase64().trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("message", "El adjunto es requerido."));
+            }
+
+            // Obtener el email del usuario autenticado desde el token JWT
+            String authenticatedEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+            if (!request.getEmail().equals(authenticatedEmail)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("message", "El email proporcionado no coincide con el usuario autenticado: " + authenticatedEmail));
+            }
+
             // Obtener el cliente por email
             Cliente cliente = clienteService.getClienteByEmail(request.getEmail())
                     .orElseThrow(() -> new RuntimeException("Cliente no encontrado con email: " + request.getEmail()));
@@ -134,11 +162,17 @@ public class FacturaController {
 
             return ResponseEntity.ok(facturaDetalles);
         } catch (IOException e) {
+            logger.error("Error al enviar el correo: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("message", "Error al enviar el correo: " + e.getMessage()));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
+            logger.error("Error al procesar la factura: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("message", "Error al procesar la factura: " + e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Error inesperado al procesar la factura: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Error inesperado al procesar la factura: " + e.getMessage()));
         }
     }
 
