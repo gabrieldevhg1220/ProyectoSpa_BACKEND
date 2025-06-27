@@ -1,6 +1,7 @@
 package com.backendspa.controller;
 
 import com.backendspa.entity.Cliente;
+import com.backendspa.entity.Pago;
 import com.backendspa.entity.Reserva;
 import com.backendspa.entity.ReservaServicio;
 import com.backendspa.service.ClienteService;
@@ -16,8 +17,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -35,7 +35,7 @@ public class FacturaController {
 
     @PostMapping("/send-invoice")
     @PreAuthorize("hasAnyAuthority('ROLE_CLIENTE', 'ROLE_RECEPCIONISTA', 'ROLE_GERENTE_GENERAL')")
-    public ResponseEntity<String> sendInvoice(@RequestBody InvoiceRequest request) {
+    public ResponseEntity<Map<String, Object>> sendInvoice(@RequestBody InvoiceRequest request) {
         try {
             // Obtener el cliente por email
             Cliente cliente = clienteService.getClienteByEmail(request.getEmail())
@@ -51,7 +51,7 @@ public class FacturaController {
                 fechaFactura = LocalDate.parse(datePart, DateTimeFormatter.BASIC_ISO_DATE);
             } catch (DateTimeParseException e) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body("Formato de número de factura inválido. Se espera INV-YYYYMMDD.");
+                        .body(Map.of("message", "Formato de número de factura inválido. Se espera INV-YYYYMMDD."));
             }
 
             // Agrupar servicios por fecha
@@ -64,34 +64,64 @@ public class FacturaController {
 
             if (serviciosDelDia.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body("No hay servicios para la fecha especificada en la factura.");
+                        .body(Map.of("message", "No hay servicios para la fecha especificada en la factura."));
             }
 
-            // Calcular monto total
-            double montoTotal = serviciosDelDia.stream()
+            // Obtener la reserva relevante (la más reciente para la fecha)
+            Reserva reserva = reservas.stream()
+                    .filter(r -> r.getServicios().stream().anyMatch(rs -> rs.getFechaServicio().toLocalDate().equals(fechaFactura)))
+                    .findFirst()
+                    .orElseThrow(() -> new RuntimeException("No se encontró reserva para la fecha especificada"));
+
+            // Calcular monto total original
+            double valorOriginal = serviciosDelDia.stream()
                     .mapToDouble(rs -> rs.getServicio().getPrecio())
                     .sum();
-
-            // Aplicar descuento si aplica
-            Integer descuento = reservas.stream()
-                    .filter(r -> r.getDescuentoAplicado() != null)
-                    .map(Reserva::getDescuentoAplicado)
+            double descuento = reserva.getPagos().stream()
+                    .mapToInt(Pago::getDescuentoAplicado)
+                    .filter(d -> d > 0)
                     .findFirst()
                     .orElse(0);
-            if (descuento > 0) {
-                montoTotal *= (1 - descuento / 100.0);
-            }
+            double valorConDescuento = reserva.getPagos().stream()
+                    .filter(p -> p.getFechaPago().equals(fechaFactura))
+                    .mapToDouble(Pago::getMontoTotal)
+                    .findFirst()
+                    .orElse(valorOriginal * (1 - descuento / 100.0));
 
-            // Generar contenido del email
+            // Preparar detalles de la factura para el frontend
+            Map<String, Object> facturaDetalles = new HashMap<>();
+            facturaDetalles.put("clienteNombre", cliente.getNombre() + " " + (cliente.getApellido() != null ? cliente.getApellido() : ""));
+            facturaDetalles.put("dni", cliente.getDni() != null ? cliente.getDni() : "N/A");
+            facturaDetalles.put("email", cliente.getEmail() != null ? cliente.getEmail() : "N/A");
+            facturaDetalles.put("fechaReserva", reserva.getFechaReserva().toString());
+            facturaDetalles.put("servicios", serviciosDelDia.stream()
+                    .map(rs -> Map.of(
+                            "nombre", rs.getServicio().getNombre(),
+                            "precio", rs.getServicio().getPrecio(),
+                            "fecha", rs.getFechaServicio().toString()
+                    )).collect(Collectors.toList()));
+            facturaDetalles.put("medioPago", reserva.getMedioPago().getDescripcion());
+            facturaDetalles.put("valorOriginal", valorOriginal);
+            facturaDetalles.put("descuento", descuento > 0 ? descuento : null);
+            facturaDetalles.put("valorConDescuento", valorConDescuento);
+            facturaDetalles.put("invoiceNumber", request.getInvoiceNumber());
+
+            // Generar contenido del email para confirmación
             StringBuilder body = new StringBuilder();
             body.append("Estimado/a ").append(cliente.getNombre()).append(",\n");
             body.append("Gracias por elegir Sentirse Bien. Adjuntamos su factura.\n");
             body.append("Detalles de los servicios:\n");
             for (ReservaServicio rs : serviciosDelDia) {
                 body.append("- ").append(rs.getServicio().getNombre())
-                        .append(" (Fecha: ").append(rs.getFechaServicio()).append(")\n");
+                        .append(" (Precio: $").append(String.format("%.2f", rs.getServicio().getPrecio()))
+                        .append(", Fecha: ").append(rs.getFechaServicio()).append(")\n");
             }
-            body.append("Total: $").append(String.format("%.2f", montoTotal)).append("\n");
+            body.append("Medio de pago: ").append(reserva.getMedioPago().getDescripcion()).append("\n");
+            body.append("Valor original: $").append(String.format("%.2f", valorOriginal)).append("\n");
+            if (reserva.getMedioPago() == Reserva.MedioPago.TARJETA_DEBITO && descuento > 0) {
+                body.append("Descuento (15%): $").append(String.format("%.2f", valorOriginal * (descuento / 100.0))).append("\n");
+            }
+            body.append("Total con descuento: $").append(String.format("%.2f", valorConDescuento)).append("\n");
 
             // Enviar correo con el PDF adjunto
             emailService.sendEmailWithAttachment(
@@ -102,13 +132,13 @@ public class FacturaController {
                     "Factura_" + request.getInvoiceNumber() + ".pdf"
             );
 
-            return ResponseEntity.ok("Comprobante enviado al correo: " + request.getEmail());
+            return ResponseEntity.ok(facturaDetalles);
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error al enviar el correo: " + e.getMessage());
+                    .body(Map.of("message", "Error al enviar el correo: " + e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Error al procesar la factura: " + e.getMessage());
+                    .body(Map.of("message", "Error al procesar la factura: " + e.getMessage()));
         }
     }
 

@@ -16,7 +16,7 @@ public class ReservaServicio {
 
     @ManyToOne
     @JoinColumn(name = "reserva_id", nullable = false)
-    @JsonBackReference // Rompe el ciclo desde la perspectiva de ReservaServicio
+    @JsonBackReference
     private Reserva reserva;
 
     @ManyToOne

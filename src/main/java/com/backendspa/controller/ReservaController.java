@@ -65,10 +65,25 @@ public class ReservaController {
                         return dto;
                     }).collect(Collectors.toList());
 
-            reservaService.createReserva(reserva, serviciosDTO);
+            Reserva savedReserva = reservaService.createReserva(reserva, serviciosDTO);
 
-            Map<String, String> response = new HashMap<>();
+            // Obtener detalles de la factura desde el último pago
+            Pago ultimoPago = savedReserva.getPagos().get(savedReserva.getPagos().size() - 1);
+            double valorOriginal = savedReserva.getServicios().stream()
+                    .mapToDouble(rs -> rs.getServicio().getPrecio())
+                    .sum();
+            double descuento = ultimoPago.getDescuentoAplicado() != null ? ultimoPago.getDescuentoAplicado() : 0;
+            double valorConDescuento = ultimoPago.getMontoTotal();
+
+            Map<String, Object> response = new HashMap<>();
             response.put("message", "Reserva creada exitosamente");
+            response.put("reservaId", savedReserva.getId());
+            response.put("factura", new ReservaService.FacturaDetalles(
+                    savedReserva.getMedioPago(),
+                    valorOriginal,
+                    descuento,
+                    valorConDescuento
+            ));
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             Map<String, String> errorResponse = new HashMap<>();
@@ -160,7 +175,6 @@ public class ReservaController {
 
     @GetMapping("/servicios")
     public List<ServicioDTO> getAllServicios() {
-        // Actualizar para usar la entidad Servicio
         return servicioRepository.findAll().stream()
                 .map(servicio -> new ServicioDTO(servicio.getNombre(), servicio.getDescripcion()))
                 .collect(Collectors.toList());

@@ -20,7 +20,6 @@ public class ReservaService {
     private final ReservaServicioRepository reservaServicioRepository;
     private final PagoRepository pagoRepository;
 
-
     public ReservaService(
             ReservaRepository reservaRepository,
             ClienteRepository clienteRepository,
@@ -35,6 +34,25 @@ public class ReservaService {
         this.servicioRepository = servicioRepository;
         this.reservaServicioRepository = reservaServicioRepository;
         this.pagoRepository = pagoRepository;
+    }
+
+    public static class FacturaDetalles {
+        private final Reserva.MedioPago medioPago;
+        private final double valorOriginal;
+        private final double descuento;
+        private final double valorConDescuento;
+
+        public FacturaDetalles(Reserva.MedioPago medioPago, double valorOriginal, double descuento, double valorConDescuento) {
+            this.medioPago = medioPago;
+            this.valorOriginal = valorOriginal;
+            this.descuento = descuento;
+            this.valorConDescuento = valorConDescuento;
+        }
+
+        public Reserva.MedioPago getMedioPago() { return medioPago; }
+        public double getValorOriginal() { return valorOriginal; }
+        public double getDescuento() { return descuento; }
+        public double getValorConDescuento() { return valorConDescuento; }
     }
 
     public Reserva createReserva(Reserva reserva, List<ReservaServicioDTO> serviciosDTO) {
@@ -55,7 +73,7 @@ public class ReservaService {
             throw new IllegalArgumentException("El medio de pago es obligatorio");
         }
 
-        // Validar fechas (mínimo 48 horas)
+        // Validar fechas (mínimo 48 horas de antelación)
         LocalDateTime now = LocalDateTime.now();
         for (ReservaServicioDTO dto : serviciosDTO) {
             long diferenciaHora = ChronoUnit.HOURS.between(now, dto.getFechaServicio());
@@ -80,7 +98,8 @@ public class ReservaService {
         Map<LocalDate, List<ReservaServicioDTO>> serviciosPorDia = serviciosDTO.stream()
                 .collect(Collectors.groupingBy(dto -> dto.getFechaServicio().toLocalDate()));
 
-        // Crear pagos por día
+        double valorTotalOriginal = 0;
+        // Asociar servicios a la reserva
         for (Map.Entry<LocalDate, List<ReservaServicioDTO>> entry : serviciosPorDia.entrySet()) {
             LocalDate fechaPago = entry.getKey();
             List<ReservaServicioDTO> serviciosDelDia = entry.getValue();
@@ -90,41 +109,36 @@ public class ReservaService {
             for (ReservaServicioDTO dto : serviciosDelDia) {
                 Servicio servicio = servicioRepository.findByNombre(dto.getServicioNombre())
                         .orElseThrow(() -> new IllegalArgumentException("Servicio no encontrado: " + dto.getServicioNombre()));
+                ReservaServicio reservaServicio = new ReservaServicio();
+                reservaServicio.setReserva(nuevaReserva);
+                reservaServicio.setServicio(servicio);
+                reservaServicio.setFechaServicio(dto.getFechaServicio());
+                nuevaReserva.getServicios().add(reservaServicio);
                 montoTotal += servicio.getPrecio();
+                valorTotalOriginal += servicio.getPrecio();
             }
 
-            // Aplicar descuento si corresponde
-            if (reserva.getMedioPago() == Reserva.MedioPago.TARJETA_DEBITO && reserva.getDescuentoAplicado() != null) {
-                montoTotal *= (1 - reserva.getDescuentoAplicado() / 100.0);
+            // Aplicar descuento si corresponde (15% para tarjeta de débito)
+            double descuento = 0;
+            if (reserva.getMedioPago() == Reserva.MedioPago.TARJETA_DEBITO) {
+                descuento = 15.0; // Fijado en 15% como requerido
+                montoTotal *= (1 - descuento / 100.0);
             }
 
-            // Crear pago
+            // Crear y asociar pago
             Pago pago = new Pago();
             pago.setCliente(cliente);
             pago.setReserva(nuevaReserva);
             pago.setMontoTotal(montoTotal);
             pago.setMedioPago(reserva.getMedioPago());
             pago.setFechaPago(fechaPago);
-            pago.setDescuentoAplicado(reserva.getDescuentoAplicado());
-            pago = pagoRepository.save(pago);
-
-            // Añadir pago a la reserva
+            pago.setDescuentoAplicado((int) descuento); // Guardar el porcentaje de descuento
             nuevaReserva.getPagos().add(pago);
-
-            // Asociar servicios a la reserva
-            for (ReservaServicioDTO dto : serviciosDelDia) {
-                Servicio servicio = servicioRepository.findByNombre(dto.getServicioNombre())
-                        .orElseThrow(() -> new IllegalArgumentException("Servicio no encontrado: " + dto.getServicioNombre()));
-                ReservaServicio reservaServicio = new ReservaServicio();
-                reservaServicio.setReserva(nuevaReserva);
-                reservaServicio.setServicio(servicio);
-                reservaServicio.setFechaServicio(dto.getFechaServicio());
-                nuevaReserva.getServicios().add(reservaServicio);
-            }
         }
 
-        // Guardar reserva
-        return reservaRepository.save(nuevaReserva);
+        // Guardar la reserva (esto persistirá automáticamente servicios y pagos debido a cascade)
+        Reserva savedReserva = reservaRepository.save(nuevaReserva);
+        return savedReserva;
     }
 
     public List<Reserva> getReservasByClienteId(Long clienteId) {
@@ -174,6 +188,11 @@ public class ReservaService {
             for (ReservaServicioDTO dto : serviciosDelDia) {
                 Servicio servicio = servicioRepository.findByNombre(dto.getServicioNombre())
                         .orElseThrow(() -> new IllegalArgumentException("Servicio no encontrado: " + dto.getServicioNombre()));
+                ReservaServicio reservaServicio = new ReservaServicio();
+                reservaServicio.setReserva(reserva);
+                reservaServicio.setServicio(servicio);
+                reservaServicio.setFechaServicio(dto.getFechaServicio());
+                reserva.getServicios().add(reservaServicio);
                 montoTotal += servicio.getPrecio();
             }
 
@@ -188,19 +207,7 @@ public class ReservaService {
             pago.setMedioPago(reserva.getMedioPago());
             pago.setFechaPago(fechaPago);
             pago.setDescuentoAplicado(reserva.getDescuentoAplicado());
-            pago = pagoRepository.save(pago);
-
             reserva.getPagos().add(pago);
-
-            for (ReservaServicioDTO dto : serviciosDelDia) {
-                Servicio servicio = servicioRepository.findByNombre(dto.getServicioNombre())
-                        .orElseThrow(() -> new IllegalArgumentException("Servicio no encontrado: " + dto.getServicioNombre()));
-                ReservaServicio reservaServicio = new ReservaServicio();
-                reservaServicio.setReserva(reserva);
-                reservaServicio.setServicio(servicio);
-                reservaServicio.setFechaServicio(dto.getFechaServicio());
-                reserva.getServicios().add(reservaServicio);
-            }
         }
 
         return reservaRepository.save(reserva);
